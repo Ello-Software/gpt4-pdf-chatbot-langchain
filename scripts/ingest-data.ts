@@ -2,18 +2,25 @@ import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
 import { PineconeStore } from 'langchain/vectorstores/pinecone';
 import { pinecone } from '@/utils/pinecone-client';
-import { PDFLoader } from 'langchain/document_loaders/fs/pdf';
 import { PINECONE_INDEX_NAME, PINECONE_NAME_SPACE } from '@/config/pinecone';
 import { DirectoryLoader } from 'langchain/document_loaders/fs/directory';
 
-/* Name of directory to retrieve your files from 
+import * as util from 'util';
+import * as fs from 'fs';
+import { PDFLoader } from 'langchain/document_loaders/fs/pdf';
+
+/* Name of directory to retrieve your files from
    Make sure to add your PDF files inside the 'docs' folder
 */
-const filePath = 'docs';
 
-export const run = async () => {
+export const ingestPdfFiles = async (userId: string, pdfBlob: Buffer) => {
+  const filePath = 'tmp';
   try {
-    /*load raw docs from the all files in the directory */
+    const writeFileSync = util.promisify(fs.writeFile);
+    await writeFileSync(`${filePath}/tmp.pdf`, pdfBlob, 'utf-8').then(() =>
+      console.log('saved'),
+    );
+
     const directoryLoader = new DirectoryLoader(filePath, {
       '.pdf': (path) => new PDFLoader(path),
     });
@@ -27,7 +34,12 @@ export const run = async () => {
       chunkOverlap: 200,
     });
 
-    const docs = await textSplitter.splitDocuments(rawDocs);
+    const docs = (await textSplitter.splitDocuments(rawDocs)).map(
+      (document) => ({
+        pageContent: document.pageContent,
+        metadata: { source: document.metadata.source },
+      }),
+    );
     console.log('split docs', docs);
 
     console.log('creating vector store...');
@@ -42,12 +54,8 @@ export const run = async () => {
       textKey: 'text',
     });
   } catch (error) {
-    console.log('error', error);
-    throw new Error('Failed to ingest your data');
+    console.error('error', error);
+    throw new Error('Failed');
   }
+  console.log('Ingestion complete');
 };
-
-(async () => {
-  await run();
-  console.log('ingestion complete');
-})();
