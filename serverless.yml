@@ -1,0 +1,44 @@
+service: gpt4-pdf-chatbot
+useDotenv: true
+
+custom:
+  webpack:
+    webpackConfig: ./webpack.config.cjs
+    packager: yarn
+  apigwBinary:
+    types:
+      - 'application/pdf'
+
+plugins:
+  - serverless-webpack
+  - serverless-offline
+  - serverless-apigw-binary
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ${opt:region, 'eu-central-1'}
+  stage: ${opt:stage, 'dev'}
+  timeout: 20
+
+  apiGateway:
+    minimumCompressionSize: 1024
+  endpointType: EDGE
+
+  environment:
+    REGION: ${self:provider.region}
+    STAGE: ${self:provider.stage}
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+    PINECONE_API_KEY: ${env:PINECONE_API_KEY}
+    PINECONE_ENVIRONMENT: ${env:PINECONE_ENVIRONMENT}
+    PINECONE_INDEX_NAME: ${env:PINECONE_INDEX_NAME}
+
+functions:
+  ingestPdf:
+    handler: api/ingest.pdfFile
+    events:
+      - http:
+          method: post
+          path: users/{userId}/files
+          cors:
+            origin: "*"
