@@ -30,6 +30,7 @@ tmp/*
 # local env files
 .env*.local
 .env
+.idea
 
 # vercel
 .vercel
